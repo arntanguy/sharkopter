@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8)
 set(CMAKE_TOOLCHAIN_FILE ${CMAKE_SOURCE_DIR}/arduino-cmake/cmake/ArduinoToolchain.cmake)
 
 
-set(PROJECT_NAME arduino)
+set(PROJECT_NAME nanocopter)
 project(PROJECT_NAME)
 
 
@@ -16,7 +16,7 @@ set(BOARD_ID pro5v328)
 # Serial port, for upload and serial targets
 set(SERIAL_PORT /dev/ttyACM0)
 # Baudrate (9600, 115200...)
-set(BAUD_RATE 9600)
+set(BAUD_RATE 115200)
 # Serial command for serial target
 set(SERIAL_COMMAND picocom ${SERIAL_PORT} -b ${BAUD_RATE} -l)
 # Programmer ID, enables programmer burning
@@ -27,19 +27,39 @@ set(AFLGS)
 # =============================
 # Files to compile
 # =============================
-set(SOURCES src/blink.cpp)
+set(SOURCES src/nanocopter.cpp)
 set(HEADERS)
-set(LIBRARIES)
+set(LIBRARIES I2Cdev MPU6050)
 
 # =============================
 # Libraries
 # =============================
+
+include_directories(/usr/share/arduino/libraries/Wire)
+set(Wire_RECURSE True)
+
 link_directories(${CMAKE_CURRENT_SOURCE_DIR}/libraries)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/libraries/I2Cdev)
+#include_directories(/usr/share/arduino/libraries/Wire)
+generate_arduino_library(I2Cdev
+    BOARD ${BOARD_ID}
+    SRCS libraries/I2Cdev/I2Cdev.cpp)
+
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/libraries/MPU6050)
+file(GLOB MPU6050_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/libraries/MPU6050/*.cpp)
+
+generate_arduino_library(MPU6050
+    BOARD ${BOARD_ID}
+    SRCS ${MPU6050_SRCS}
+    LIBS I2Cdev
+    )
+
+
 ## If a library contains nested source, a special option must be set to enable recursion
 ## The option name should be ${LIBRARY_NAME}_RECURSE, where in this case LIBRARY_NAME is equal to Wire.
 #set(Wire_RECURSE True)
 #generate_arduino_library(name
-#    ${BOARD_ID}
+#    BOARD ${BOARD_ID}
 #     [SRCS  src1 src2 ... srcN]
 #     [HDRS  hdr1 hdr2 ... hdrN]
 #     [LIBS  lib1 lib2 ... libN]
@@ -51,7 +71,7 @@ link_directories(${CMAKE_CURRENT_SOURCE_DIR}/libraries)
 # Other options include:
 # - ARDLIBS 	Manual list of Arduino type libraries, common use case is when the library header name does not match the librarie's directory name. ADVANCED OPTION! Can be used in conjuction with NO_AUTOLIBS.
 # - SKETCH sketch path
-generate_arduino_firmware(target_name
+generate_arduino_firmware(nanocopter
     BOARD ${BOARD_ID} 
     SRCS ${SOURCES}
     HDRS ${HEADERS}
