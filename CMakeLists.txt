@@ -29,7 +29,7 @@ set(AFLGS)
 # =============================
 set(SOURCES src/nanocopter.cpp)
 set(HEADERS)
-set(LIBRARIES I2Cdev MPU6050)
+set(LIBRARIES I2Cdev MPU6050 PID ESP8266)
 
 # =============================
 # Libraries
@@ -40,20 +40,29 @@ set(Wire_RECURSE True)
 
 link_directories(${CMAKE_CURRENT_SOURCE_DIR}/libraries)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/libraries/I2Cdev)
-#include_directories(/usr/share/arduino/libraries/Wire)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/libraries/ITEADLIB_Arduino_WeeESP8266)
+
 generate_arduino_library(I2Cdev
     BOARD ${BOARD_ID}
     SRCS libraries/I2Cdev/I2Cdev.cpp)
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/libraries/MPU6050)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/libraries)
 file(GLOB MPU6050_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/libraries/MPU6050/*.cpp)
-
 generate_arduino_library(MPU6050
     BOARD ${BOARD_ID}
     SRCS ${MPU6050_SRCS}
     LIBS I2Cdev
     )
 
+generate_arduino_library(PID
+    BOARD ${BOARD_ID}
+    SRCS libraries/PID_v1/PID_v1.cpp 
+    LIBS I2Cdev
+    )
+
+  generate_arduino_library(ESP8266
+    BOARD ${BOARD_ID}
+    SRCS libraries/ITEADLIB_Arduino_WeeESP8266/ESP8266.cpp)
 
 ## If a library contains nested source, a special option must be set to enable recursion
 ## The option name should be ${LIBRARY_NAME}_RECURSE, where in this case LIBRARY_NAME is equal to Wire.

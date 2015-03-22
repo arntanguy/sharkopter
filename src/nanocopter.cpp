@@ -2,6 +2,7 @@
 #include <Wire.h>
 #include "I2Cdev/I2Cdev.h"
 #include "MPU6050/MPU6050_6Axis_MotionApps20.h"
+#include "PID_v1/PID_v1.h"
 
 MPU6050 mpu;
 
@@ -19,7 +20,7 @@ uint8_t fifoBuffer[64]; // FIFO storage buffer
 int16_t ax, ay, az;
 int16_t gx, gy, gz;
 double timeStep, time, timePrev;
-double arx, ary, arz, grx, gry, grz, gsx, gsy, gsz, rx, ry, rz;
+double arx, ary, arz, grx, gry, grz, gsx, gsy, gsz, ypr[3];
 double gyroScale = 131;
 int i;
 
@@ -36,39 +37,86 @@ uint8_t teapotPacket[14] = { '$', 0x02, 0,0, 0,0, 0,0, 0,0, 0x00, 0x00, '\r', '\
 #define BOTTOMLEFT 9 
 
 
-void shutdown_motors()
-{
-  analogWrite(TOPLEFT, 0); 
-  analogWrite(BOTTOMRIGHT, 0); 
-  analogWrite(TOPRIGHT, 0); 
-  analogWrite(BOTTOMLEFT, 0); 
+// =================================================================
+// ==                   Flight controller                         ==
+// =================================================================
+
+/**
+ * Controllers
+ */
+double nsOut, nsSet = 0;
+::PID* nsController = new PID(&ypr[0], &nsOut, &nsSet, 7, 0.0, 1.1, REVERSE);
+
+double ewOut, ewSet = 0;
+::PID* ewController = new PID(&ypr[1], &ewOut, &ewSet, 10.0, 0.06, 1.5, REVERSE);
+
+double yawOut, yawSet = 0;
+::PID* yawController = new PID(&ypr[0], &yawOut, &yawSet, 2.0, 0.0, 0.0, DIRECT);
+
+/*
+ * Flight variables
+ */
+
+int initSpeed = 1000;
+long lastWatchdog = 0;
+
+/**
+ * Debug
+ **/
+void printPIDGains(){
+	Serial.print("NS] P :: ");
+	Serial.print(nsController->GetKp());
+	Serial.print("   I :: ");
+	Serial.print(nsController->GetKi());
+	Serial.print("   D :: ");
+	Serial.print(nsController->GetKd());
+	Serial.print("   EW] P :: ");
+	Serial.print(ewController->GetKp());
+	Serial.print("   I :: ");
+	Serial.print(ewController->GetKi());
+	Serial.print("   D :: ");
+	Serial.print(ewController->GetKd());
+	Serial.print("   YAW] P :: ");
+	Serial.print(yawController->GetKp());
+	Serial.print("   I :: ");
+	Serial.print(yawController->GetKi());
+	Serial.print("   D :: ");
+	Serial.print(yawController->GetKd());
 }
 
-void motor_check_sequential(int speed=125) {
-  digitalWrite(DEBUG_LED, HIGH);
-  Serial.print("Testing motor 1 at fullspeed\n");
-  analogWrite(TOPLEFT, speed); 
-  delay(1000);
-  Serial.print("Testing motor 2 at fullspeed\n");
-  analogWrite(TOPLEFT, 0); 
-  analogWrite(BOTTOMRIGHT, speed); 
-  delay(1000);
-  Serial.print("Testing motor 3 at fullspeed\n");
-  analogWrite(BOTTOMRIGHT, 0); 
-  analogWrite(TOPRIGHT, speed); 
-  delay(1000);
-  Serial.print("Testing motor 4 at fullspeed\n");
-  analogWrite(TOPRIGHT, 0); 
-  analogWrite(BOTTOMLEFT, speed); 
-  delay(1000);
-  analogWrite(BOTTOMLEFT, 0); 
-  digitalWrite(DEBUG_LED, LOW);
+void printHelp() {
+  Serial.println("Z - Enter run mode");
+  Serial.println("I - Increase base speed");
+  Serial.println("K - Decrease base speed");
+  Serial.println("O - Increase init speed");
+  Serial.println("L - Decrease init speed");
+  Serial.println("Q - Increase P gain");
+  Serial.println("A - Decrease P gain");
+  Serial.println("W - Increase I gain");
+  Serial.println("S - Decrease I gain");
+  Serial.println("E - Increase D gain");
+  Serial.println("D - Decrease D gain");
+}
+
+
+/*
+ * Initializer functions
+ */
+
+void initControllers()
+{
+	nsController->SetOutputLimits(-1000, 1000);
+	nsController->SetMode(AUTOMATIC);
+	ewController->SetOutputLimits(-1000, 1000);
+	ewController->SetMode(AUTOMATIC);
+	yawController->SetOutputLimits(-300, 300);
+	yawController->SetMode(AUTOMATIC);
 }
 
 // ================================================================
 // ===               INTERRUPT DETECTION ROUTINE                ===
 // ================================================================
-
+// MPU uses interuptions to indicate when data is available in the FIFO buffer
 volatile bool mpuInterrupt = false;     // indicates whether MPU interrupt pin has gone high
 void dmpDataReady() {
   mpuInterrupt = true;
@@ -79,7 +127,6 @@ void dmpDataReady() {
 // ================================================================
 // ===                      INITIAL SETUP                       ===
 // ================================================================
-
 void setup() {
   pinMode(TOPLEFT, OUTPUT);
   pinMode(BOTTOMRIGHT, OUTPUT);
@@ -94,13 +141,18 @@ void setup() {
   // 400KHZ
   //Fastwire::setup(400, true);
 
-  //while (!Serial); // wait for Leonardo enumeration, others continue immediately
 
+  Serial.println(F("Initializing flight controllers..."));
+  initControllers();
+
+
+  //while (!Serial); // wait for Leonardo enumeration, others continue immediately
+  
   // initialize device
   Serial.println(F("Initializing I2C devices..."));
   mpu.initialize();
 
-  // verify connection
+   // verify connection
   Serial.println(F("Testing device connections..."));
   Serial.println(mpu.testConnection() ? F("MPU6050 connection successful") : F("MPU6050 connection failed"));
 
@@ -146,16 +198,23 @@ void setup() {
     Serial.println(F(")"));
   }
 
-  digitalWrite(DEBUG_LED, LOW);
-  shutdown_motors();
-
+  printPIDGains();
+  Serial.println();
+  printHelp();
+  Serial.println(F("Press X to start"));
+	//while(true){
+	//	if(Serial.available()) { // Wait for initialization command from user
+	//		if(Serial.read() == 'X') break;
+	//	}
+	//}
   digitalWrite(DEBUG_LED, HIGH);
-  delay(6000);
   //motor_check_sequential();
   digitalWrite(DEBUG_LED, LOW);
 
   time = millis();
+  lastWatchdog = millis();
   i = 1;
+  delay(6000);
 }
 
 // ================================================================
@@ -201,18 +260,9 @@ void loop() {
     // read a packet from FIFO
     mpu.getFIFOBytes(fifoBuffer, packetSize);
 
-    //while(fifoCount > packetSize) {
-    //  fifoCount = mpu.getFIFOCount();
-    //  mpu.getFIFOBytes(fifoBuffer, packetSize);
-    //  fifoCount -= packetSize;
-    //}
-    //mpu.getFIFOBytes(fifoBuffer, packetSize);
-
-
     // track FIFO count here in case there is > 1 packet available
     // (this lets us immediately read more without waiting for an interrupt)
     fifoCount -= packetSize;
-    if(fifoCount>packetSize) mpu.resetFIFO();
 
     // set up time for integration
     timePrev = time;
@@ -244,9 +294,9 @@ void loop() {
     }  
 
     // apply filter
-    rx = (0.1 * arx) + (0.9 * grx);
-    ry = (0.1 * ary) + (0.9 * gry);
-    rz = (0.1 * arz) + (0.9 * grz);
+    ypr[0] = (0.1 * arx) + (0.9 * grx);
+    ypr[1] = (0.1 * ary) + (0.9 * gry);
+    ypr[2] = (0.1 * arz) + (0.9 * grz);
 
     // print result
     Serial.print(i);   Serial.print("\t");
@@ -265,21 +315,25 @@ void loop() {
     Serial.print(grx);   Serial.print("\t");
     Serial.print(gry);   Serial.print("\t");
     Serial.print(grz);   Serial.print("\t\t");
-    Serial.print(rx);   Serial.print("\t");
-    Serial.print(ry);   Serial.print("\t");
-    Serial.println(rz);
+    Serial.print(ypr[0]);   Serial.print("\t");
+    Serial.print(ypr[1]);   Serial.print("\t");
+    Serial.println(ypr[2]);
 
     int rest_lift = 125;
 
-    int left_control =  255-map(rx, -20, 0, 0, 255);
-    int right_control = map(rx, 0, 20, 0, 255);
-    int top_control = 255-map(ry, -20, 0, 0, 255);
-    int bottom_control = map(ry, 0, 20, 0, 255);
+    int left_control =  255-map(ypr[0], -20, 0, 0, 255);
+    int right_control = map(ypr[0], 0, 20, 0, 255);
+    int top_control = 255-map(ypr[1], -20, 0, 0, 255);
+    int bottom_control = map(ypr[1], 0, 20, 0, 255);
 
     int topleft     = constrain(rest_lift + left_control + top_control    , 0, 255);
     int topright    = constrain(rest_lift + right_control + top_control   , 0, 255);
     int bottomleft  = constrain(rest_lift + left_control + bottom_control , 0, 255);
     int bottomright = constrain(rest_lift + right_control + bottom_control, 0, 255);
+
+		//nsController->Compute();
+		//ewController->Compute();
+		//yawController->Compute();
 
     analogWrite(TOPLEFT, topleft); 
     analogWrite(BOTTOMRIGHT, bottomright); 
