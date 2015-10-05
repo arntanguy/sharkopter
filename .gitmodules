@@ -4,3 +4,6 @@
 [submodule "libraries/i2cdevlib"]
 	path = libraries/i2cdevlib
 	url = https://github.com/jrowberg/i2cdevlib
+[submodule "libraries/ESP8266"]
+	path = libraries/ESP8266
+	url = git@github.com:itead/ITEADLIB_Arduino_WeeESP8266.git
