@@ -39,16 +39,17 @@ include_directories(/usr/share/arduino/libraries/Wire)
 set(Wire_RECURSE True)
 
 link_directories(${CMAKE_CURRENT_SOURCE_DIR}/libraries)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/libraries/I2Cdev)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/libraries/i2cdevlib/Arduino/I2Cdev)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/libraries/i2cdevlib/Arduino/MPU6050)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/libraries/ITEADLIB_Arduino_WeeESP8266)
 include_directories(/usr/share/arduino/libraries)
 
 generate_arduino_library(I2Cdev
     BOARD ${BOARD_ID}
-    SRCS libraries/I2Cdev/I2Cdev.cpp)
+    SRCS libraries/i2cdevlib/Arduino/I2Cdev/I2Cdev.cpp)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/libraries)
-file(GLOB MPU6050_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/libraries/MPU6050/*.cpp)
+file(GLOB MPU6050_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/libraries/i2cdevlib/Arduino/MPU6050/*.cpp)
 generate_arduino_library(MPU6050
     BOARD ${BOARD_ID}
     SRCS ${MPU6050_SRCS}
