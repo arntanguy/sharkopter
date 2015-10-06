@@ -28,5 +28,8 @@ Boards
 ===
 
 - Sparkfun Arduino Pro Mini (pro5v328)
+
 - IMU MPU6050 (Gyro and accelerometer)
+
 - Wifi: currently considering ESP8266 
+    - Firmware version 0018000902-AI03

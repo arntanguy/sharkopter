@@ -7,3 +7,6 @@
 [submodule "libraries/ESP8266"]
 	path = libraries/ESP8266
 	url = git@github.com:itead/ITEADLIB_Arduino_WeeESP8266.git
+[submodule "libraries/ESP8266_Simple"]
+	path = libraries/ESP8266_Simple
+	url = https://github.com/sleemanj/ESP8266_Simple
