@@ -18,6 +18,15 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+
+
+
+/*
+ * # Reset device
+ * AT
+ * AT+RST
+ */
+
 #include "ESP8266.h"
 #include <SoftwareSerial.h>
 
